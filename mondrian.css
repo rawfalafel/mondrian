@@ -1,0 +1,16 @@
+.base {
+    position: relative;
+    background-image: url('mondrian2.jpeg');
+    width: 1131px;
+    height: 707px;
+    margin: 0 auto;
+}
+
+.frame {
+    position: absolute;
+    overflow: auto;
+}
+
+.frame::-webkit-scrollbar {
+    display: none;
+}
