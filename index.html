@@ -4,12 +4,13 @@
         <script type="text/javascript" src="lib/jquery.js"></script>
         <script type="text/javascript" src="lib/angular.js"></script>
         <script type="text/javascript" src="mondrian.js"></script>
+        <script type="text/javascript" src="directives.js"></script>
         <link rel="stylesheet" type="text/css" href="mondrian.css"/>
     </head>
     <body>
         <div style="overflow: hidden;" ng-controller="Mondrian">
             <div class='base'>
-                <div ng-repeat='frame in coordinates' ng-click='switch(frame)' ng-class='getFrameClass(frame)' ng-style='getStyle(frame)'></div>
+                <div ng-repeat='frame in coordinates' ng-click='rotate(frame)' ng-right-click='reverseRotate(frame)' ng-class='getFrameClass(frame)' ng-style='getStyle(frame)'></div>
             </div>
         </div>
     </body>

@@ -2,7 +2,7 @@
 (function() {
     'use strict';
 
-    var app = angular.module('mondrian', []);
+    var app = angular.module('mondrian', ['directives']);
 
     app.controller('Mondrian', function($scope, $timeout) {
         // all of this configuration is defined as an array
@@ -85,15 +85,16 @@
                 height: shapes[value[0]].height,
                 left: value[1],
                 top: value[2],
-                painting: 0 // 0 == empty background
+                painting: null // null == empty background
             };
         });
 
         var paintings = [
             // url, width, height
             ['gogh.jpg', 1971, 1572],
-            // ['tree.jpg', 1280, 939],
-            // ['seurat.jpg', 2248, 1786]
+            ['tree.jpg', 1280, 939],
+            ['seurat.jpg', 2248, 1786],
+            ['seurat2.jpg', 1061, 852]
         ];
 
         // transform
@@ -110,7 +111,9 @@
         };
 
         $scope.getFrameClass = function(frame) {
-            return 'frame frame-' + coordinates.indexOf(frame) + ' painting-' + frame.painting;
+            var frameClass = 'frame frame-' + coordinates.indexOf(frame) +
+                ((frame.painting != null) ? ' painting-' + frame.painting : ' painting-empty');
+            return frameClass;
         };
 
         $timeout(function() {
@@ -121,33 +124,54 @@
             });
         });
 
-        var validPainting = function(i) {
-            if (i === 0) {
+        var validPainting = function(frame) {
+            // TODO: Return false for frames that are out of bounds
+            if (frame.painting === null) {
                 return true;
             }
-            return true;
+
+            var collection = paintings[frame.painting].collection;
+            if (collection.isInbounds(frame)) {
+                return true;
+            } else {
+                return false;
+            }
         };
 
-        $scope.switch = function(frame) {
+        var rotate = $scope.rotate = function(frame, reverse) {
             // find the next useable background
             var oldpainting = frame.painting;
             do {
-                frame.painting++;
-                if (frame.painting > paintings.length) {
-                    frame.painting = 0;
+                if (frame.painting == null) {
+                    if (!reverse) {
+                        frame.painting = 0;
+                    } else {
+                        frame.painting = paintings.length - 1;
+                    }
+                } else if ((!reverse && frame.painting + 1 == paintings.length) ||
+                    (reverse && frame.painting === 0)) {
+                    frame.painting = null;
+                } else if (reverse) {
+                    frame.painting--;
+                } else {
+                    frame.painting++;
                 }
-            } while (!validPainting(frame.painting));
+            } while (!validPainting(frame));
 
-            if (oldpainting == frame.paiting) {
+            if (oldpainting == frame.painting) {
                 return;
             }
 
-            if (oldpainting) {
-                paintings[oldpainting-1].collection.remove(frame);
+            if (oldpainting != null) {
+                paintings[oldpainting].collection.remove(frame);
             }
-            if (frame.painting) {
-                paintings[frame.painting-1].collection.add(frame);
+            if (frame.painting != null) {
+                paintings[frame.painting].collection.add(frame);
             }
+        };
+
+        $scope.reverseRotate = function(frame) {
+            rotate(frame, true);
         };
 
         function ContentCollection(frames, painting, paintingIndex) {
@@ -188,7 +212,7 @@
             }
 
             function paintingSelector() {
-                return '.painting-' + (paintingIndex + 1);
+                return '.painting-' + paintingIndex;
             }
 
             function createContent(frame, boundary) {
@@ -235,11 +259,26 @@
                 });
             };
 
-            function updateOrigin() {
+            this.isInbounds = function(frame) {
+                updateOrigin();
+                if (frame.left < originX) {
+                    return false;
+                } else if (frame.top < originY) {
+                    return false;
+                } else if (frame.left + frame.width > originX + painting.width) {
+                    return false;
+                } else if (frame.top + frame.height > originY + painting.height) {
+                    return false;
+                }
+
+                return true;
+            };
+
+            var updateOrigin = this.updateOrigin = function() {
                 var frameDiv = $frames[0] || {};
-                originX = boundary.minX ? (frameDiv.scrollLeft - boundary.minX) : 0;
-                originY = boundary.minY ? (frameDiv.scrollTop - boundary.minY) : 0;
-            }
+                originX = boundary.minX ? (boundary.minX - frameDiv.scrollLeft) : 0;
+                originY = boundary.minY ? (boundary.minY - frameDiv.scrollTop) : 0;
+            };
 
             var updateBoundary = this.updateBoundary = function() {
                 boundary = calculateBoundary();
@@ -258,8 +297,8 @@
 
                     $timeout(function() {
                         var frameDiv = $frame[0];
-                        frameDiv.scrollLeft = boundary.minX + originX;
-                        frameDiv.scrollTop = boundary.minY + originY;
+                        frameDiv.scrollLeft = boundary.minX - originX;
+                        frameDiv.scrollTop = boundary.minY - originY;
                     });
 
                 });
@@ -323,95 +362,6 @@
                 boundary = _boundary;
                 update();
             };
-            // $(ele).scroll(function(e) {
-            //     var scrollLeft = e.currentTarget.scrollLeft,
-            //         scrollTop = e.currentTarget.scrollTop;
-
-            //     $frames.each(function(i, ele) {
-            //         ele.scrollLeft = scrollLeft;
-            //         ele.scrollTop = scrollTop;
-            //     });
-            // });
         }
-
-        // var gogh = $scope.gogh = [
-        //     { left: 110, top: 84, width: 265, height: 265 },
-        //     { left: 570, top: 153, width: 176, height: 129 },
-        //     { left: 570, top: 358, width: 83, height: 128 },
-        //     { left: 569, top: 494, width: 178, height: 130 },
-        //     { left: 384, top: 563, width: 177, height: 129 }
-        // ];
-
-        // var tree = $scope.tree = [
-        //     { left: 17, top: 426, width: 85, height: 197 },
-        //     { left: 386, top: 16, width: 176, height: 59 },
-        //     { left: 384, top: 84, width: 177, height: 128 },
-        //     { left: 1029, top: 84, width: 84, height: 197 }
-        // ];
-
-        // var seurat2 = $scope.seurat2 = [
-        //     { left: 385, top: 427, width: 173, height: 125},
-        //     { left: 571, top: 17, width: 175, height: 129},
-        //     { left: 755, top: 358, width: 265, height: 265}
-        // ];
-
-        // $timeout(function() {
-        //     sync($('.gogh'), 'gogh', gogh, 1971, 1572);
-        //     sync($('.tree'), 'tree', tree, 1280, 939);
-        //     sync($('.seurat2'), 'seurat2', seurat2, 1061, 852);
-        // });
-
-        // function sync($frames, imgUrl, config, width, height) {
-        //     var minX = _.min(config, function(v) {
-        //         return v.left;
-        //     }).left;
-        //     var maxX = (function(o) {
-        //         return o.left + o.width;
-        //     })(_.max(config, function(v) {
-        //         return v.left + v.width;
-        //     }));
-        //     var minY = _.min(config, function(v) {
-        //         return v.top;
-        //     }).top;
-        //     var maxY = (function(o) {
-        //         return o.top + o.height;
-        //     })(_.max(config, function(v) {
-        //         return v.top + v.height;
-        //     }));
-
-        //     $frames.each(function(i, ele) {
-        //         var frame = config[i];
-
-        //         // computes the starting point + end point of both x,y coordinates
-        //         var x1 = frame.left - minX,
-        //             x2 = maxX - (frame.left + frame.width),
-        //             y1 = frame.top - minY,
-        //             y2 = maxY - (frame.top + frame.height);
-
-        //         var $img = $('<div></div>');
-        //         $img.css({
-        //             'background-image': 'url(\'' + imgUrl + '.jpg\')',
-        //             'background-position-x': '-' + x1 + 'px',
-        //             'background-position-y': '-' + y1 + 'px',
-        //             width: (width - x1 - x2) + 'px',
-        //             height: (height - y1 - y2) + 'px'
-        //         }).appendTo(ele);
-
-        //         $timeout(function() {
-        //             ele.scrollLeft = minX;
-        //             ele.scrollTop = minY;
-        //         });
-
-        //         $(ele).scroll(function(e) {
-        //             var scrollLeft = e.currentTarget.scrollLeft,
-        //                 scrollTop = e.currentTarget.scrollTop;
-
-        //             $frames.each(function(i, ele) {
-        //                 ele.scrollLeft = scrollLeft;
-        //                 ele.scrollTop = scrollTop;
-        //             });
-        //         });
-        //     });
-        // }
     });
 })();
