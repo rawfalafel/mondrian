@@ -118,8 +118,20 @@
 
         $timeout(function() {
             _.each(paintings, function(painting, index) {
-                var collection = new ContentCollection([], painting, index);
-                collection.init();
+                var collection;
+                if (localStorage.getItem('mondrian-' + index)) {
+                    var data = JSON.parse(localStorage.getItem('mondrian-' + index));
+                    var frames = _.map(data.frameIndexes, function(frameIndex) {
+                        var frame = coordinates[frameIndex];
+                        frame.painting = index;
+                        return frame;
+                    });
+                    console.log(data, frames);
+                    collection = new ContentCollection(frames, painting, index, data.originX, data.originY);
+                } else {
+                    collection = new ContentCollection([], painting, index);
+                }
+                collection.updateBoundary();
                 painting.collection = collection;
             });
         });
@@ -174,16 +186,17 @@
             rotate(frame, true);
         };
 
-        function ContentCollection(frames, painting, paintingIndex) {
+        function ContentCollection(frames, painting, paintingIndex, originX, originY) {
             // calculates the boundary (relative to the base div)
             // helps instantiate Content classes
 
             // inits scrollLeft,scrollTop for each frame
             // defines an event handler that synchronizes scroll position
 
-            var originX = 0,
-                originY = 0,
-                $frames, boundary;
+            originX || (originX = 0);
+            originY || (originY = 0);
+
+            var $frames, boundary;
 
             function calculateBoundary() {
                 var boundary = {};
@@ -236,6 +249,8 @@
                     ele.scrollLeft = scrollLeft;
                     ele.scrollTop = scrollTop;
                 });
+
+                updateOriginAndSave();
             };
 
             this.init = function() {
@@ -248,8 +263,8 @@
 
                     $timeout(function() {
                         var frameDiv = $frame[0];
-                        frameDiv.scrollLeft = boundary.minX;
-                        frameDiv.scrollTop = boundary.minY;
+                        frameDiv.scrollLeft = boundary.minX - originX;
+                        frameDiv.scrollTop = boundary.minY - originY;
                     });
                 });
 
@@ -316,6 +331,8 @@
                 frames = frames.concat(frame);
                 $(frameSelector(frame)).scroll(scrollHandler);
                 updateBoundary();
+
+                saveCollection();
             };
 
             this.remove = function(frame) {
@@ -325,7 +342,28 @@
                 $(frameSelector(frame)).off('scroll', scrollHandler).empty();
                 frame.content = null;
                 updateBoundary();
+
+                saveCollection();
             };
+
+            var updateOriginAndSave = _.debounce(function() {
+                updateOrigin();
+                saveCollection();
+            }, 100);
+
+            function saveCollection() {
+
+                var frameIndexes = _.map(frames, function(frame) {
+                    return coordinates.indexOf(frame);
+                });
+                var storageString = JSON.stringify({
+                    frameIndexes: frameIndexes,
+                    originX: originX,
+                    originY: originY
+                });
+                localStorage.setItem('mondrian-' + paintingIndex, storageString);
+                console.log(storageString);
+            }
         }
 
         function Content(painting, frame, _boundary) {
@@ -336,7 +374,7 @@
             // computes the starting point + end point of both x,y coordinates
             var $img = $('<div></div>');
             $img.css({
-                'background-image': 'url(\'' + painting.url + '\')',
+                'background-image': 'url(\'paintings/' + painting.url + '\')',
             });
 
             this.getDiv = function() {
